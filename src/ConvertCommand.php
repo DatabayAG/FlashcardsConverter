@@ -69,7 +69,7 @@ class ConvertCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         // force whoops output in case of redirection by ilias
-        echo ' ';
+        echo "\n";
 
         $output->write('execute convert command' . "\n");
         foreach ($this->conv_repo->getFlashcardTrainings() as $object) {
