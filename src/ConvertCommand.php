@@ -35,6 +35,7 @@ use ILIAS\DI\RBACServices;
 use ilRbacReview;
 use FlashcardsConverter\Data\ConverterRepository;
 use Throwable;
+use ilObject;
 
 class ConvertCommand extends Command
 {
@@ -67,11 +68,17 @@ class ConvertCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        // force whoops output in case of redirection by ilias
+        echo ' ';
+
         $output->write('execute convert command' . "\n");
         foreach ($this->conv_repo->getFlashcardTrainings() as $object) {
             $output->writeln('CONVERT: ' . $object->getInfoline());
             try {
                 $this->convertObject($object);
+            } catch (ConvertException $e) {
+                $output->writeln($e->getMessage());
+                continue;
             } catch (Throwable $e) {
                 $output->writeln($e->getMessage());
                 $output->writeln($e->getTraceAsString());
@@ -86,13 +93,9 @@ class ConvertCommand extends Command
      */
     private function convertObject(RepoObject $object): void
     {
-        echo "get training object\n";
         $training = $this->conv_repo->getTrainingData($object->getObjId());
 
-        echo "change object type\n";
         $this->conv_repo->changeObjectTypeToGlossary($object->getObjId());
-
-        echo "create glossary record\n";
         $this->conv_repo->createGlossaryRecord(
             $training->getObjId(),
             $training->isOnline(),
@@ -100,13 +103,10 @@ class ConvertCommand extends Command
         );
 
         // now the former training should be an empty collection glossary
-        echo "new glossary object\n";
         $glossary = new ilObjGlossary($training->getObjId(), false);
 
         // add a keyword to identify the glossary as being converted (will be read by list command)
-        echo "get lom manipulator\n";
         $manipulator = $this->lom->manipulate($glossary->getId(), $glossary->getId(), 'glo');
-        echo "prepare lom manipulator\n";
         $manipulator = $manipulator->prepareCreateOrUpdate($this->lom->paths()->keywords(), 'FlashcardsConverter');
 
         // add former instructions as a second description, keep the main description
@@ -119,13 +119,18 @@ class ConvertCommand extends Command
                 $training->getInstructions()
             );
         }
-        echo "execute lom manipulator\n";
         $manipulator->execute();
 
-        echo "edd missing permissions\n";
         $this->addMissingPermissions($object);
 
-        echo "migrate cards\n";
+        if ($training->getGlossaryRefId() === null || ilObject::_lookupType($training->getGlossaryRefId(), true) !== 'glo') {
+            $glossary->setDescription('Flashcard training conversion: source glossary missing');
+            $glossary->setOnline(false);
+            $glossary->update();
+
+            throw new ConvertException('FAILURE: ' . $object->getInfoline() . ' - source glossary missing!');
+        }
+
         $this->migrateCards($training, $glossary);
     }
 
