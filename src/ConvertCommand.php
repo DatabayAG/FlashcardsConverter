@@ -86,9 +86,13 @@ class ConvertCommand extends Command
      */
     private function convertObject(RepoObject $object): void
     {
+        echo "get training object\n";
         $training = $this->conv_repo->getTrainingData($object->getObjId());
 
+        echo "change object type\n";
         $this->conv_repo->changeObjectTypeToGlossary($object->getObjId());
+
+        echo "create glossary record\n";
         $this->conv_repo->createGlossaryRecord(
             $training->getObjId(),
             $training->isOnline(),
@@ -96,10 +100,13 @@ class ConvertCommand extends Command
         );
 
         // now the former training should be an empty collection glossary
+        echo "new glossary object\n";
         $glossary = new ilObjGlossary($training->getObjId(), false);
 
         // add a keyword to identify the glossary as being converted (will be read by list command)
+        echo "get lom manipulator\n";
         $manipulator = $this->lom->manipulate($glossary->getId(), $glossary->getId(), 'glo');
+        echo "prepare lom manipulator\n";
         $manipulator = $manipulator->prepareCreateOrUpdate($this->lom->paths()->keywords(), 'FlashcardsConverter');
 
         // add former instructions as a second description, keep the main description
@@ -112,9 +119,13 @@ class ConvertCommand extends Command
                 $training->getInstructions()
             );
         }
+        echo "execute lom manipulator\n";
         $manipulator->execute();
 
+        echo "edd missing permissions\n";
         $this->addMissingPermissions($object);
+
+        echo "migrate cards\n";
         $this->migrateCards($training, $glossary);
     }
 
