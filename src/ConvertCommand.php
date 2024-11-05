@@ -166,6 +166,10 @@ class ConvertCommand extends Command
                 foreach (ilGlossaryTerm::getTermsOfGlossary($source_id) as $term_id) {
                     if (!empty($card = $cards[$term_id] ?? null) && is_array($usages[$card->getCardId()] ?? null)) {
                         foreach ($usages[$card->getCardId()] as $user_id => $usage) {
+                            if (empty($usage->getLastChecked())) {
+                                continue;
+                            }
+
                             // flashcards startbox is 0, glossary startbox is 1
                             $last_box = (int) $usage->getLastStatus() + 1;
                             $current_box = (int) $usage->getStatus() + 1;
@@ -185,7 +189,7 @@ class ConvertCommand extends Command
                             );
 
                             // last access of box is highest last access of items last trained for this box
-                            if (empty($box->getLastAccess()) || !empty($usage->getLastChecked()) && $usage->getLastChecked() > $box->getLastAccess()) {
+                            if (empty($box->getLastAccess()) || $usage->getLastChecked() > $box->getLastAccess()) {
                                 $box = $box->withLastAccess($usage->getLastChecked());
                             }
                             $boxes[$usage->getUserId()][$last_box] = $box;
